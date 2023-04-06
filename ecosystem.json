@@ -1,0 +1,9 @@
+{
+  "apps": [
+    {
+      "name": "Remmie Webrtc Player",
+      "script": "./dist/server.js",
+      "namespace": "webrtc-player"
+    }
+  ]
+}

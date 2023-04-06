@@ -1,0 +1,23 @@
+{
+  "execMap": {
+    "ts": "ts-node"
+  },
+  "ext": "js,ts,json",
+  "exec": "ts-node --files src/index.ts",
+  "restartable": "rs",
+  "ignore": [
+    ".git",
+    "node_modules/**/node_modules",
+    "database.realm",
+    "database.realm.lock",
+    "database.realm.note",
+    "database.realm.management",
+    "public",
+    "media"
+  ],
+  "verbose": true,
+  "watch": [
+    "./"
+  ]
+}
+

@@ -1,0 +1,593 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Title</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+
+<body>
+<div>
+
+    <div class="w-full h-screen w-screen flex justify-center items-center" id="join-room" style="display: none">
+        <div class="w-full max-w-sm ">
+            <form class="bg-white shadow-md rounded px-8 pt-6 pb-8 mb-4" id="join-room-form">
+                <div class="mb-4">
+                    <label class="block text-gray-700 text-sm font-bold mb-2" for="room">
+                        Room Name
+                    </label>
+                    <input class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+                           id="room" name="room" type="text" placeholder="Username">
+                </div>
+                <div class="mb-6">
+                    <label class="block text-gray-700 text-sm font-bold mb-2" for="role">
+                        Role
+                    </label>
+                    <select class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 mb-3 leading-tight focus:outline-none focus:shadow-outline"
+                            name="role" id="role">
+                        <option value="guest">Guest</option>
+                        <option value="host">Host</option>
+                    </select>
+                </div>
+                <div class="flex items-center justify-between">
+                    <button class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline"
+                            type="submit">
+                        Join
+                    </button>
+                </div>
+            </form>
+            <p class="text-center text-gray-500 text-xs">
+                &copy;2020 Acme Corp. All rights reserved.
+            </p>
+        </div>
+    </div>
+
+    <div class="container mx-auto" id="video-room" style="display: none">
+        <div class="grid grid-cols-2 gap-4">
+            <div class="flex flex-wrap -mx-3 mb-6">
+                <div class="w-full md:w-1/2 px-3 mb-6 md:mb-0">
+                    <label class="block uppercase tracking-wide text-gray-700 text-xs font-bold mb-2"
+                           for="camera-selection">
+                        Camera
+                    </label>
+                    <select id="camera-selection"
+                            class="appearance-none block w-full bg-gray-200 text-gray-700 border rounded py-3 px-4 mb-3 leading-tight focus:outline-none focus:bg-white">
+                        <option value="">Select Value</option>
+                    </select>
+                </div>
+                <div class="w-full md:w-1/2 px-3">
+                    <label class="block uppercase tracking-wide text-gray-700 text-xs font-bold mb-2"
+                           for="microphone-selection">
+                        Microphone
+                    </label>
+                    <select id="microphone-selection"
+                            class="appearance-none block w-full bg-gray-200 text-gray-700 border rounded py-3 px-4 mb-3 leading-tight focus:outline-none focus:bg-white">
+                        <option value="">Select Value</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+        <div class="grid grid-cols-2 gap-4"></div>
+        <div class="grid grid-cols-2 gap-4">
+            <video playsinline autoplay muted id="local-video" style="width: 100%; object-fit: contain"></video>
+            <video playsinline autoplay id="remote-video" style="width: 100%; object-fit: contain"></video>
+        </div>
+    </div>
+</div>
+</div>
+<script src="https://cdn.socket.io/4.6.0/socket.io.min.js"
+        integrity="sha384-c79GN5VsunZvi+Q/WObgk2in0CbZsHnjEqvFxC5DxHn9lTfNce2WW6h2pH6u/kF+"
+        crossorigin="anonymous"></script>
+<script type="application/javascript">
+
+    class Socket {
+        socket = null
+
+        /**
+         * Returns the sum of all numbers passed to the function.
+         * @type {string} num A positive or negative number
+         */
+        room = "";
+
+        /**
+         * Returns the sum of all numbers passed to the function.
+         * @type {string} num A positive or negative number
+         */
+        role = "";
+
+
+        /**
+         * Returns the sum of all numbers passed to the function.
+         * @param {string} room A positive or negative number
+         * @param {string} role A positive or negative number
+         */
+        constructor(room, role) {
+            this.room = room
+            this.role = role
+            this.disconnect = this.disconnect.bind(this)
+            this.connect()
+
+        }
+
+        connect() {
+            this.socket = io(location.href)
+            window.addEventListener("beforeunload", this.disconnect)
+        }
+
+        disconnect() {
+            if (this.socket) {
+                this.socket.disconnect()
+            }
+        }
+
+        /**
+         * @method
+         * @param event {string}
+         * @param message {any}
+         */
+        emit(event, message) {
+            if (this.socket) {
+                console.log(`${event} => `, message)
+                this.socket.emit(event, message)
+            }
+        }
+
+        on(event, callback) {
+            this.socket.on(event, callback);
+        }
+    }
+
+    class WebRTC {
+        /**
+         * Returns the sum of all numbers passed to the function.
+         * @type {Socket} num A positive or negative number
+         */
+        socket = null;
+
+        /**
+         * Returns the sum of all numbers passed to the function.
+         * @type {RTCPeerConnection} num A positive or negative number
+         */
+        peerConnection = null;
+
+        /**
+         * Returns the sum of all numbers passed to the function.
+         * @type {MediaStream} num A positive or negative number
+         */
+        localMediaStream = new MediaStream();
+
+        /**
+         * Returns the sum of all numbers passed to the function.
+         * @type {MediaStream} num A positive or negative number
+         */
+        remoteMediaStream = new MediaStream();
+
+        /**
+         * Returns the sum of all numbers passed to the function.
+         * @type {HTMLVideoElement} num A positive or negative number
+         */
+        localVideo = null;
+
+        /**
+         * Returns the sum of all numbers passed to the function.
+         * @type {HTMLVideoElement} num A positive or negative number
+         */
+        remoteVideo = null;
+
+        /**
+         * Returns the sum of all numbers passed to the function.
+         * @type {HTMLSelectElement} num A positive or negative number
+         */
+        cameraSelection = null;
+
+        /**
+         * Returns the sum of all numbers passed to the function.
+         * @type {HTMLSelectElement} num A positive or negative number
+         */
+        microphoneSelection = null;
+
+        /**
+         * Returns the sum of all numbers passed to the function.
+         * @type {{video: string, audio:string}} num A positive or negative number
+         */
+        selectDevices = {
+            video: "default",
+            audio: "default"
+        }
+
+        /**
+         * Returns the sum of all numbers passed to the function.
+         * @type {string} num A positive or negative number
+         */
+        room = "";
+
+        /**
+         * Returns the sum of all numbers passed to the function.
+         * @type {string} num A positive or negative number
+         */
+        role = "";
+
+
+        /**
+         * Returns the sum of all numbers passed to the function.
+         * @param {HTMLVideoElement} localVideo A positive or negative number
+         * @param {HTMLVideoElement} remoteVideo A positive or negative number
+         * @param {string} room A positive or negative number
+         * @param {string} role A positive or negative number
+         */
+        constructor(localVideo, remoteVideo, room, role) {
+            this.room = room
+            this.role = role
+            this.localVideo = localVideo
+            this.remoteVideo = remoteVideo
+
+            this.disconnect = this.disconnect.bind(this);
+            this.onSocketRequestConnection = this.onSocketRequestConnection.bind(this);
+            this.onSocketSdp = this.onSocketSdp.bind(this);
+            this.onSocketIce = this.onSocketIce.bind(this);
+
+
+            this.onIceCandidate = this.onIceCandidate.bind(this)
+            this.onIceConnectionStateChange = this.onIceConnectionStateChange.bind(this)
+            this.onNegotiationNeeded = this.onNegotiationNeeded.bind(this)
+            this.onTracks = this.onTracks.bind(this)
+        }
+
+        connect() {
+            this.socket = new Socket();
+            this.socket.on("request_connection", this.onSocketRequestConnection);
+            this.socket.on("sdp", this.onSocketSdp);
+            this.socket.on("ice", this.onSocketIce);
+            this.onIceServers([{urls: "stun:stun.stunprotocol.org:3478"}, {urls: "stun:stun.l.google.com:19302"},]);
+            window.addEventListener("beforeunload", this.disconnect)
+            this.cameraSelection = document.getElementById("camera-selection")
+            this.microphoneSelection = document.getElementById("microphone-selection")
+            this.cameraSelection.addEventListener("change", this.onChangeVideo.bind(this))
+            this.microphoneSelection.addEventListener("change", this.onChangeAudio.bind(this))
+        }
+
+        disconnect() {
+            if (this.peerConnection) {
+                this.peerConnection.close()
+            }
+        }
+
+        /**
+         * @method
+         * @param event {{
+         *     target: HTMLSelectElement,
+         *     currentTarget: HTMLSelectElement,
+         * }}
+         */
+        onChangeAudio(event) {
+            console.log("Change Audio");
+            const target = event.currentTarget;
+            this.selectDevices.audio = target.value
+            this.changeLocalTrack()
+        }
+
+        /**
+         * @method
+         * @param event {{
+         *     target: HTMLSelectElement,
+         *     currentTarget: HTMLSelectElement,
+         * }}
+         */
+        onChangeVideo(event) {
+            console.log("Change Video");
+            const target = event.currentTarget;
+            this.selectDevices.video = target.value
+            this.changeLocalTrack()
+        }
+
+        async enumerateDevices() {
+            const devices = await navigator.mediaDevices.enumerateDevices()
+            const videoDevices = devices.filter(item => item.kind === "videoinput")
+            const audioDevices = devices.filter(item => item.kind === "audioinput")
+
+            if (this.cameraSelection) {
+                const item = this.cameraSelection
+                item.innerHTML = "<option value=\"\">Select Camera</option>"
+                for (const device of videoDevices) {
+                    const option = document.createElement("option")
+                    option.value = device.deviceId
+                    option.textContent = device.label
+                    item.appendChild(option)
+                }
+            }
+
+            if (this.microphoneSelection) {
+                const item = this.microphoneSelection
+                item.innerHTML = "<option value=\"\">Select Microphone</option>"
+                for (const device of audioDevices) {
+                    const option = document.createElement("option")
+                    option.value = device.deviceId
+                    option.textContent = device.label
+                    item.appendChild(option)
+                }
+            }
+        }
+
+        changeLocalTrack() {
+            this.addStream()
+        }
+
+
+        async addLocalMediaTracks() {
+            const tracks = this.localMediaStream.getTracks();
+            const senders = this.peerConnection.getSenders();
+            const audioTrack = tracks.find(item => item.kind === "audio")
+            const videoTrack = tracks.find(item => item.kind === "video")
+            console.log("Tracks => ", tracks)
+            const audioSender = senders.find(item => item.track && item.track.kind === "audio")
+            const videoSender = senders.find(item => item.track && item.track.kind === "video")
+            if (audioSender) {
+                if (audioTrack) {
+                    await audioSender.replaceTrack(audioTrack)
+                }
+            } else {
+                if (audioTrack) {
+                    this.peerConnection.addTrack(audioTrack);
+                }
+            }
+
+            if (videoSender) {
+                if (videoTrack) {
+                    await videoSender.replaceTrack(videoTrack)
+                }
+
+            } else {
+
+                if (videoTrack) {
+                    this.peerConnection.addTrack(videoTrack);
+                }
+            }
+        }
+
+        initialMedia() {
+            if (this.localVideo) {
+                if (!this.localVideo.srcObject) {
+                    this.localVideo.srcObject = this.localMediaStream;
+                }
+            }
+            if (this.remoteVideo) {
+                if (!this.remoteVideo.srcObject) {
+                    this.remoteVideo.srcObject = this.remoteMediaStream;
+                }
+            }
+        }
+
+
+        async addStream() {
+            try {
+
+                /**
+                 * @method
+                 * @type {MediaStreamConstraints}
+                 */
+                const constraints = {
+                    audio: {deviceId: this.selectDevices.audio},
+                    video: {deviceId: this.selectDevices.video},
+                }
+                console.log(constraints)
+                const localMediaStream = await navigator.mediaDevices.getUserMedia(constraints);
+                console.log(localMediaStream.getTracks())
+                const localTracks = this.localMediaStream.getTracks();
+                console.log("Local Tracks => ", localTracks)
+                if (localTracks.length) {
+                    for (const localTrack of localTracks) {
+                        this.localMediaStream.removeTrack(localTrack)
+                    }
+                }
+
+                const newTracks = localMediaStream.getTracks();
+                console.log("New Tracks => ", newTracks)
+                for (const newTrack of newTracks) {
+                    this.localMediaStream.addTrack(newTrack)
+                }
+            } catch (e) {
+                console.log(e)
+            }
+
+
+            await this.addLocalMediaTracks();
+
+        }
+
+        /**
+         * @method
+         * @param iceServers {RTCIceServer[]}
+         */
+        onIceServers(iceServers) {
+            this.peerConnection = new RTCPeerConnection({
+                iceServers,
+            });
+            this.peerConnection.addEventListener("icecandidate", this.onIceCandidate);
+            this.peerConnection.addEventListener("iceconnectionstatechange", this.onIceConnectionStateChange);
+            this.peerConnection.addEventListener("negotiationneeded", this.onNegotiationNeeded);
+            this.peerConnection.addEventListener("track", this.onTracks);
+            this.enumerateDevices();
+            this.initialMedia();
+            this.addStream();
+        }
+
+        async createOffer() {
+            if (this.peerConnection) {
+                this.remoteMediaStream.getTracks().forEach(item => {
+                    this.remoteMediaStream.removeTrack(item)
+                })
+                const offer = await this.peerConnection.createOffer();
+                await this.peerConnection.setLocalDescription(offer);
+                if (this.socket) {
+                    this.socket.emit("sdp", offer);
+                }
+            }
+        }
+
+        async createAnswer() {
+            if (this.peerConnection) {
+                const answer = await this.peerConnection.createAnswer();
+                await this.peerConnection.setLocalDescription(answer);
+                if (this.socket) {
+                    this.socket.emit("sdp", answer);
+                }
+            }
+        }
+
+        /**
+         * @method
+         * @param event {RTCSessionDescription}
+         */
+        async onSocketRequestConnection() {
+            if (this.role === "host") {
+                await this.createOffer();
+            }
+        }
+
+        /**
+         * @method
+         * @param event {RTCSessionDescription}
+         */
+        async onSocketSdp(event) {
+            console.log("SDP Received => ", event)
+            if (this.peerConnection) {
+                await this.peerConnection.setRemoteDescription(event);
+                if (event.type === "offer") {
+                    await this.createAnswer();
+                }
+            }
+
+        }
+
+        /**
+         * @method
+         * @param event {RTCIceCandidate}
+         */
+        async onSocketIce(event) {
+            console.log("ICE Received => ", event)
+            if (this.peerConnection) {
+                const candidate = new RTCIceCandidate(event);
+                await this.peerConnection.addIceCandidate(candidate);
+            }
+        }
+
+        /**
+         * @method
+         * @param event {RTCPeerConnectionIceEvent}
+         */
+
+        onIceCandidate(event) {
+            if (event.candidate) {
+                if (event.candidate.candidate !== "") {
+                    this.socket.emit("ice", event.candidate);
+                }
+            }
+        }
+
+        onIceConnectionStateChange() {
+            if (this.peerConnection === null) {
+                return;
+            }
+            switch (this.peerConnection.iceConnectionState) {
+                case "checking":
+                    console.log("Checking Peer Connection");
+                    break;
+                case "connected":
+                    console.log("Peer Connected Successfully");
+                    break;
+                case "closed":
+                    console.log("Peer Closed");
+                    break;
+                case "completed":
+                    console.log("Peer Connection Completed");
+                    break;
+                case "disconnected":
+                    console.log("Peer Connection Disconnected");
+                    break;
+                case "failed":
+                    this.peerConnection.restartIce();
+                    console.log("Peer Connection Failed");
+                    break;
+                case "new":
+                    console.log("New Peer Connection");
+                    break;
+            }
+        }
+
+        async onNegotiationNeeded() {
+            if (this.role === "host") {
+                await this.createOffer();
+            } else {
+                this.socket.emit("request_connection", "Connection Request");
+            }
+        }
+
+
+        /**
+         * @method
+         * @param event {RTCTrackEvent}
+         */
+        onTracks(event) {
+            console.log("new track ", event.track.kind);
+            this.remoteMediaStream.addTrack(event.track);
+            if (this.remoteVideo) {
+                this.remoteVideo.muted = false
+            }
+        }
+    }
+
+
+    document.addEventListener("DOMContentLoaded", () => {
+        const url = new URL(location.href)
+        const role = url.searchParams.get("role");
+        const room = url.searchParams.get("room");
+
+        if (role && room) {
+            const item = document.getElementById("video-room")
+            item.style.removeProperty("display")
+
+            const localVideoContainer = document.getElementById("local-video")
+            const remoteVideoContainer = document.getElementById("remote-video")
+            const webrtc = new WebRTC(localVideoContainer, remoteVideoContainer, room, role)
+            webrtc.connect()
+        } else {
+            const item = document.getElementById("join-room")
+            item.style.removeProperty("display")
+
+            const form = document.getElementById("join-room-form");
+            if (form) {
+                form.addEventListener("submit", (event) => {
+                    event.preventDefault();
+                    let roomName = null
+                    let roleName = null
+                    const roomField = form.querySelector("#room");
+                    if (roomField) {
+                        roomName = roomField.value
+                    }
+
+                    const roleField = form.querySelector("#role");
+                    if (roomField) {
+                        roleName = roleField.value
+                    }
+
+                    if (roomName && roleName) {
+                        url.searchParams.set("role", roleName)
+                        url.searchParams.set("room", roomName)
+                        location.href = url.href
+                    } else {
+                        if (!roomName) {
+                            roomField.classList.add("border-red-500")
+                        }
+                        if (!roleName) {
+                            roleField.classList.add("border-red-500")
+                        }
+                    }
+                })
+            }
+
+        }
+    })
+
+</script>
+</body>
+</html>
